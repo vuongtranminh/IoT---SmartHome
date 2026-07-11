@@ -1,0 +1,302 @@
+{
+  "info": {
+    "name": "Smart Home Wokwi",
+    "description": "API cho project mô phỏng nhà thông minh trên Wokwi (ESP32) - giao tiếp qua MQTT.\n\n- `base_url` = backend Node.js (mặc định http://localhost:3000)\n- `esp_url` = ESP32 qua Wokwi port forward (mặc định http://localhost:8080)\n- `api_key` = API key bảo mật, phải trùng với API_KEY trong ESP32 và backend\n\nBẢO MẬT: mọi request /api đều tự động kèm header x-api-key (cấu hình ở tab Authorization của collection). Lệnh điều khiển backend gửi qua MQTT cũng kèm api_key để ESP32 xác thực.\n\ndevice: fan | ac | light_living | light_bedroom | door | window | alarm\naction: on | off | open | close | auto | speed (quạt) | set_temp (điều hòa)\nvalue : tốc độ quạt 0-3, hoặc nhiệt độ điều hòa 16-30",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "apikey",
+    "apikey": [
+      { "key": "key", "value": "x-api-key", "type": "string" },
+      { "key": "value", "value": "{{api_key}}", "type": "string" },
+      { "key": "in", "value": "header", "type": "string" }
+    ]
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:3000" },
+    { "key": "esp_url", "value": "http://localhost:8080" },
+    { "key": "api_key", "value": "sk-smarthome-7f3a9d2e" }
+  ],
+  "item": [
+    {
+      "name": "Backend - Dữ liệu",
+      "item": [
+        {
+          "name": "Xem dữ liệu mới nhất",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/latest"
+          }
+        },
+        {
+          "name": "Xem lịch sử telemetry",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/history"
+          }
+        },
+        {
+          "name": "Xem sự kiện (events)",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/events",
+            "description": "Sự kiện thời gian thực từ ESP32, mới nhất trước. Lọc theo loại: /api/events?type=fire_alarm (các loại: boot, fire_alarm, motion, door, window, control_applied, control_rejected, security_alert)."
+          }
+        },
+        {
+          "name": "Xem cảnh báo đang hoạt động",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/alerts",
+            "description": "Trả về { online, fire_alarm, gas_level, last_security_alert } - tiện cho dashboard."
+          }
+        },
+        {
+          "name": "Trạng thái thiết bị (online + dữ liệu mới nhất)",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/devices/status",
+            "description": "Trả về { online: true/false, ...telemetry mới nhất }. Online theo dõi qua topic MQTT smarthome/{DEVICE_ID}/status (LWT)."
+          }
+        },
+        {
+          "name": "Test sai API key (phải trả 401)",
+          "request": {
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                { "key": "key", "value": "x-api-key", "type": "string" },
+                { "key": "value", "value": "sai-api-key-123", "type": "string" },
+                { "key": "in", "value": "header", "type": "string" }
+              ]
+            },
+            "method": "GET",
+            "url": "{{base_url}}/api/latest",
+            "description": "Request này cố tình dùng key sai để kiểm tra backend chặn đúng (mong đợi 401 unauthorized)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Backend - Điều khiển quạt",
+      "item": [
+        {
+          "name": "Bật quạt (mặc định mức 2)",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/devices/fan",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"action\": \"on\"\n}" }
+          }
+        },
+        {
+          "name": "Tắt quạt",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/devices/fan",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"action\": \"off\"\n}" }
+          }
+        },
+        {
+          "name": "Chỉnh tốc độ gió (0-3)",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/devices/fan",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"action\": \"speed\",\n  \"value\": 3\n}" }
+          }
+        },
+        {
+          "name": "Quạt về chế độ tự động",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/devices/fan",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"action\": \"auto\"\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Backend - Điều khiển điều hòa",
+      "item": [
+        {
+          "name": "Bật điều hòa",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/devices/ac",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"action\": \"on\"\n}" }
+          }
+        },
+        {
+          "name": "Tắt điều hòa",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/devices/ac",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"action\": \"off\"\n}" }
+          }
+        },
+        {
+          "name": "Đặt nhiệt độ (16-30°C)",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/devices/ac",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"action\": \"set_temp\",\n  \"value\": 24\n}" }
+          }
+        },
+        {
+          "name": "Điều hòa về chế độ tự động",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/devices/ac",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"action\": \"auto\"\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Backend - Đèn",
+      "item": [
+        {
+          "name": "Bật đèn phòng khách",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/devices/light_living",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"action\": \"on\"\n}" }
+          }
+        },
+        {
+          "name": "Tắt đèn phòng khách",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/devices/light_living",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"action\": \"off\"\n}" }
+          }
+        },
+        {
+          "name": "Đèn phòng khách về tự động",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/devices/light_living",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"action\": \"auto\"\n}" }
+          }
+        },
+        {
+          "name": "Bật đèn phòng ngủ",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/devices/light_bedroom",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"action\": \"on\"\n}" }
+          }
+        },
+        {
+          "name": "Tắt đèn phòng ngủ",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/devices/light_bedroom",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"action\": \"off\"\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Backend - Cửa",
+      "item": [
+        {
+          "name": "Mở cửa chính",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/devices/door",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"action\": \"open\"\n}" }
+          }
+        },
+        {
+          "name": "Đóng cửa chính",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/devices/door",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"action\": \"close\"\n}" }
+          }
+        },
+        {
+          "name": "Mở cửa sổ",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/devices/window",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"action\": \"open\"\n}" }
+          }
+        },
+        {
+          "name": "Đóng cửa sổ",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/devices/window",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"action\": \"close\"\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Backend - Báo cháy",
+      "item": [
+        {
+          "name": "Kích hoạt báo cháy",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/devices/alarm",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"action\": \"on\"\n}" },
+            "description": "Bật còi + đèn đỏ, tự mở cửa chính/cửa sổ, quạt chạy mức 3, tắt điều hòa."
+          }
+        },
+        {
+          "name": "Tắt báo cháy",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/devices/alarm",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"action\": \"off\"\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "ESP32 trực tiếp",
+      "item": [
+        {
+          "name": "GET /status",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": "{{esp_url}}/status",
+            "description": "Gọi thẳng vào HTTP server debug của ESP32 (qua Wokwi port forward localhost:8080), không qua backend/MQTT."
+          }
+        },
+        {
+          "name": "POST /control",
+          "request": {
+            "method": "POST",
+            "url": "{{esp_url}}/control",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"device\": \"fan\",\n  \"action\": \"speed\",\n  \"value\": 2\n}" },
+            "description": "ESP32 cũng yêu cầu api_key: header x-api-key (kế thừa từ collection) hoặc field \"api_key\" trong body. Body: device (fan|ac|light_living|light_bedroom|door|window|alarm), action (on|off|open|close|auto|speed|set_temp), value (tùy chọn)."
+          }
+        }
+      ]
+    }
+  ]
+}

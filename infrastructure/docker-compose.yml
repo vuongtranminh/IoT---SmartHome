@@ -1,0 +1,36 @@
+# Chỉ cần MongoDB + Redis. Broker MQTT (Aedes) chạy trong Node backend (npm run broker).
+services:
+  mongo:
+    image: mongo:7
+    container_name: sh-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: sh-redis
+    command: ["redis-server", "--requirepass", "redispass"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+
+  mongo-express:
+    image: mongo-express:1
+    container_name: sh-mongo-express
+    ports:
+      - "8081:8081"
+    environment:
+      ME_CONFIG_MONGODB_SERVER: mongo
+      ME_CONFIG_BASICAUTH_USERNAME: admin
+      ME_CONFIG_BASICAUTH_PASSWORD: admin
+    depends_on: [mongo]
+    restart: unless-stopped
+
+volumes:
+  mongo-data:
+  redis-data:

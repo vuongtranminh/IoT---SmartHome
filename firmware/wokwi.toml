@@ -1,0 +1,9 @@
+[wokwi]
+version = 1
+firmware = ".pio/build/esp32dev/firmware.bin"
+elf = ".pio/build/esp32dev/firmware.elf"
+
+# Chuyển tiếp cổng: backend gọi http://localhost:8080 -> ESP32 cổng 80
+[[net.forward]]
+from = "localhost:8080"
+to = "target:80"

@@ -1,0 +1,154 @@
+{
+  "version": 1,
+  "author": "phamhuungan",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "board-esp32-devkit-c-v4",
+      "id": "esp",
+      "top": 0,
+      "left": 0,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-dht22",
+      "id": "dht",
+      "top": -150,
+      "left": -180,
+      "attrs": { "temperature": "28", "humidity": "60" }
+    },
+    {
+      "type": "wokwi-potentiometer",
+      "id": "gas",
+      "top": -20,
+      "left": -220,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-photoresistor-sensor",
+      "id": "ldr",
+      "top": 120,
+      "left": -250,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-pir-motion-sensor",
+      "id": "pir",
+      "top": 250,
+      "left": -180,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-servo",
+      "id": "servoDoor",
+      "top": -180,
+      "left": 250,
+      "attrs": { "hornColor": "red" }
+    },
+    {
+      "type": "wokwi-servo",
+      "id": "servoWindow",
+      "top": -80,
+      "left": 250,
+      "attrs": { "hornColor": "blue" }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "ledLiving",
+      "top": 30,
+      "left": 260,
+      "attrs": { "color": "yellow", "label": "Đèn phòng khách" }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "ledBedroom",
+      "top": 30,
+      "left": 330,
+      "attrs": { "color": "orange", "label": "Đèn phòng ngủ" }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "ledFan",
+      "top": 130,
+      "left": 260,
+      "attrs": { "color": "green", "label": "Quạt" }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "ledAC",
+      "top": 130,
+      "left": 330,
+      "attrs": { "color": "blue", "label": "Điều hòa" }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "ledAlarm",
+      "top": 230,
+      "left": 260,
+      "attrs": { "color": "red", "label": "Báo cháy" }
+    },
+    {
+      "type": "wokwi-buzzer",
+      "id": "buzzer",
+      "top": 220,
+      "left": 340,
+      "attrs": { "volume": "1" }
+    },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "btnFire",
+      "top": 350,
+      "left": 100,
+      "attrs": { "color": "red", "label": "Test báo cháy" }
+    }
+  ],
+  "connections": [
+    [ "esp:TX", "$serialMonitor:RX", "", [] ],
+    [ "esp:RX", "$serialMonitor:TX", "", [] ],
+
+    [ "dht:VCC", "esp:3V3", "red", [] ],
+    [ "dht:GND", "esp:GND.1", "black", [] ],
+    [ "dht:SDA", "esp:15", "green", [] ],
+
+    [ "gas:VCC", "esp:3V3", "red", [] ],
+    [ "gas:GND", "esp:GND.1", "black", [] ],
+    [ "gas:SIG", "esp:34", "orange", [] ],
+
+    [ "ldr:VCC", "esp:3V3", "red", [] ],
+    [ "ldr:GND", "esp:GND.1", "black", [] ],
+    [ "ldr:AO", "esp:35", "purple", [] ],
+
+    [ "pir:VCC", "esp:3V3", "red", [] ],
+    [ "pir:GND", "esp:GND.1", "black", [] ],
+    [ "pir:OUT", "esp:13", "cyan", [] ],
+
+    [ "servoDoor:V+", "esp:5V", "red", [] ],
+    [ "servoDoor:GND", "esp:GND.2", "black", [] ],
+    [ "servoDoor:PWM", "esp:18", "yellow", [] ],
+
+    [ "servoWindow:V+", "esp:5V", "red", [] ],
+    [ "servoWindow:GND", "esp:GND.2", "black", [] ],
+    [ "servoWindow:PWM", "esp:19", "yellow", [] ],
+
+    [ "ledLiving:A", "esp:25", "yellow", [] ],
+    [ "ledLiving:C", "esp:GND.2", "black", [] ],
+
+    [ "ledBedroom:A", "esp:26", "orange", [] ],
+    [ "ledBedroom:C", "esp:GND.2", "black", [] ],
+
+    [ "ledFan:A", "esp:27", "green", [] ],
+    [ "ledFan:C", "esp:GND.2", "black", [] ],
+
+    [ "ledAC:A", "esp:14", "blue", [] ],
+    [ "ledAC:C", "esp:GND.2", "black", [] ],
+
+    [ "ledAlarm:A", "esp:23", "red", [] ],
+    [ "ledAlarm:C", "esp:GND.2", "black", [] ],
+
+    [ "buzzer:1", "esp:GND.2", "black", [] ],
+    [ "buzzer:2", "esp:12", "magenta", [] ],
+
+    [ "btnFire:1.l", "esp:4", "gray", [] ],
+    [ "btnFire:2.l", "esp:GND.1", "black", [] ]
+  ]
+}

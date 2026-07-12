@@ -126,7 +126,8 @@ export function useDevice() {
                    action === 'off' || action === 'close' ? 'tắt' :
                    action === 'speed' ? `chỉnh mức ${value}` :
                    action === 'set_temp' ? `đặt ${value}°C` :
-                   action === 'auto' ? 'bật auto' : action;
+                   action === 'auto' ? 'bật chế độ Auto' :
+                   action === 'manual' ? 'tắt chế độ Auto' : action;
       toast.success(`${LABEL[device] || device}: ${verb} thành công`);
     } catch (e: any) {
       const msg = e?.response?.status === 429 ? 'quá nhiều lệnh, chờ 1 phút'

@@ -20,7 +20,7 @@ export function DeviceControls({
         icon={Lightbulb} title="Đèn phòng khách" running={!!devices?.light_living}
         auto={!!devices?.light_living_auto}
         onToggle={(on) => control('light_living', on ? 'on' : 'off')}
-        onAuto={() => control('light_living', 'auto')}
+        onAuto={() => control('light_living', devices?.light_living_auto ? 'manual' : 'auto')}
         disabled={disabled} loading={!!pending.light_living}
       />
       <ToggleCard
@@ -75,8 +75,9 @@ function FanCard({ state, control, disabled, loading }: { state?: Devices; contr
             </Button>
           ))}
         </div>
-        <Button variant="secondary" size="sm" disabled={blocked} onClick={() => control('fan', 'auto')}>
-          Bật chế độ Auto
+        <Button variant="secondary" size="sm" disabled={blocked}
+          onClick={() => control('fan', auto ? 'manual' : 'auto')}>
+          {auto ? 'Tắt chế độ Auto' : 'Bật chế độ Auto'}
         </Button>
       </CardContent>
     </Card>
@@ -120,8 +121,9 @@ function AcCard({ state, control, disabled, loading }: { state?: Devices; contro
             className="w-full"
           />
         </div>
-        <Button variant="secondary" size="sm" disabled={blocked} onClick={() => control('ac', 'auto')}>
-          Bật chế độ Auto
+        <Button variant="secondary" size="sm" disabled={blocked}
+          onClick={() => control('ac', auto ? 'manual' : 'auto')}>
+          {auto ? 'Tắt chế độ Auto' : 'Bật chế độ Auto'}
         </Button>
       </CardContent>
     </Card>
@@ -154,7 +156,7 @@ function ToggleCard({
         </div>
         {onAuto && (
           <Button variant="secondary" size="sm" disabled={blocked} onClick={onAuto} className="mt-2 w-full">
-            Bật chế độ Auto
+            {auto ? 'Tắt chế độ Auto' : 'Bật chế độ Auto'}
           </Button>
         )}
       </CardContent>

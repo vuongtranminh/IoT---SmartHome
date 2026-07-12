@@ -87,7 +87,9 @@ String topicEvent     = String("smarthome/") + DEVICE_ID + "/event";
 
 // ----------------- NGƯỠNG TỰ ĐỘNG -----------------
 const int GAS_THRESHOLD  = 2500;  // ADC > 2500 -> báo cháy
-const int DARK_THRESHOLD = 1000;  // ADC < 1000 -> trời tối
+// LDR Wokwi (wokwi-photoresistor-sensor) INVERT — Lux thấp (tối) → AO cao,
+// Lux cao (sáng) → AO thấp. Vì vậy "tối" = ADC > ngưỡng, không phải ADC < ngưỡng.
+const int DARK_THRESHOLD = 3000;  // ADC > 3000 -> trời tối
 
 // ----------------- ĐỐI TƯỢNG -----------------
 DHT dht(PIN_DHT, DHT22);
@@ -124,7 +126,11 @@ struct SensorData {
 unsigned long lastTelemetry = 0;
 unsigned long lastSensorRead = 0;
 unsigned long lastMqttAttempt = 0;
-uint64_t lastControlTs = 0; // chống replay: chỉ nhận lệnh có ts mới hơn lệnh trước
+unsigned long lastMotionAt = 0;    // millis lúc PIR trigger — giữ đèn sáng 10s sau lần motion cuối
+bool hasMotionHistory = false;      // false khi chưa từng có motion (tránh sáng đèn oan lúc boot)
+uint64_t lastControlTs = 0;         // chống replay: chỉ nhận lệnh có ts mới hơn lệnh trước
+
+const unsigned long MOTION_HOLD_MS = 10000;  // giữ "còn người" 10s sau lần motion cuối
 
 // ================================================================
 //  HMAC-SHA256 - ký & xác minh message (mbedtls có sẵn trong ESP32)
@@ -249,7 +255,20 @@ void readSensors() {
 
   bool motion = digitalRead(PIN_PIR);
   if (motion && !sensors.motion) publishEvent("motion", "detected");
+  if (motion) { lastMotionAt = millis(); hasMotionHistory = true; }  // reset hold timer + mark đã có motion
   sensors.motion = motion;
+
+  // Debug log giá trị cảm biến mỗi 5s để dễ tune ngưỡng auto logic
+  static unsigned long lastSensorLog = 0;
+  if (millis() - lastSensorLog >= 5000) {
+    lastSensorLog = millis();
+    unsigned long sinceMotion = millis() - lastMotionAt;
+    bool holding = hasMotionHistory && sinceMotion < MOTION_HOLD_MS;
+    Serial.printf("[Sensors] temp=%.1f hum=%.1f gas=%d light=%d motion=%d hold=%d(%lus) | auto: ac=%d fan=%d light=%d\n",
+                  sensors.temperature, sensors.humidity, sensors.gas, sensors.light, sensors.motion,
+                  holding, hasMotionHistory ? sinceMotion / 1000 : 0,
+                  state.auto_ac, state.auto_fan, state.auto_light);
+  }
 }
 
 void autoLogic() {
@@ -285,9 +304,14 @@ void autoLogic() {
     setFanSpeed(speed);
   }
 
-  // --- Đèn phòng khách: tối + có người ---
+  // --- Đèn phòng khách: tối VÀ có chuyển động (motion hold 10s) ---
+  // PIR chỉ giữ HIGH ~2s khi trigger → mở rộng "còn người" = 10s sau lần
+  // trigger cuối để đèn không tắt bất tiện khi người đứng yên.
+  // LDR Wokwi INVERT: Lux thấp (tối) → ADC cao → dùng `light > DARK_THRESHOLD`.
   if (state.auto_light) {
-    setLightLiving(sensors.light < DARK_THRESHOLD && sensors.motion);
+    bool personPresent = sensors.motion ||
+                         (hasMotionHistory && millis() - lastMotionAt < MOTION_HOLD_MS);
+    setLightLiving(sensors.light > DARK_THRESHOLD && personPresent);
   }
 }
 
@@ -308,14 +332,17 @@ String buildStatusJson(bool withApiKey) {
   s["motion"]      = sensors.motion;
 
   JsonObject d = doc["devices"].to<JsonObject>();
-  d["ac"]            = state.ac;
-  d["ac_temp"]       = state.ac_temp;
-  d["fan_speed"]     = state.fan_speed;
-  d["light_living"]  = state.light_living;
-  d["light_bedroom"] = state.light_bedroom;
-  d["door"]          = state.door_open ? "open" : "closed";
-  d["window"]        = state.window_open ? "open" : "closed";
-  d["fire_alarm"]    = state.fire_alarm;
+  d["ac"]                = state.ac;
+  d["ac_temp"]           = state.ac_temp;
+  d["ac_auto"]           = state.auto_ac;         // AUTO mode flag cho UI hiển thị badge
+  d["fan_speed"]         = state.fan_speed;
+  d["fan_auto"]          = state.auto_fan;
+  d["light_living"]      = state.light_living;
+  d["light_living_auto"] = state.auto_light;
+  d["light_bedroom"]     = state.light_bedroom;
+  d["door"]              = state.door_open ? "open" : "closed";
+  d["window"]            = state.window_open ? "open" : "closed";
+  d["fire_alarm"]        = state.fire_alarm;
 
   String out;
   serializeJson(doc, out);
@@ -329,9 +356,9 @@ bool applyControl(const String& device, const String& action, float value) {
   bool on = (action == "on" || action == "open");
 
   if (device == "fan") {
-    if (action == "auto") {
-      state.auto_fan = true;
-    } else if (action == "speed") {
+    if (action == "auto")        state.auto_fan = true;
+    else if (action == "manual") state.auto_fan = false;   // chỉ tắt auto, giữ nguyên state
+    else if (action == "speed") {
       state.auto_fan = false;
       setFanSpeed((int)value);
     } else {
@@ -339,16 +366,17 @@ bool applyControl(const String& device, const String& action, float value) {
       setFanSpeed(on ? 2 : 0); // on/off: bật mặc định mức 2
     }
   } else if (device == "ac") {
-    if (action == "auto") {
-      state.auto_ac = true;
-    } else if (action == "set_temp") {
+    if (action == "auto")        state.auto_ac = true;
+    else if (action == "manual") state.auto_ac = false;
+    else if (action == "set_temp") {
       setACTemp(value); // đổi nhiệt độ cài đặt, giữ nguyên chế độ auto/tay
     } else {
       state.auto_ac = false;
       setAC(on);
     }
   } else if (device == "light_living") {
-    if (action == "auto") state.auto_light = true;
+    if (action == "auto")        state.auto_light = true;
+    else if (action == "manual") state.auto_light = false;
     else { state.auto_light = false; setLightLiving(on); }
   } else if (device == "light_bedroom") {
     setLightBedroom(on);

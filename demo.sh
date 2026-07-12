@@ -48,31 +48,16 @@ case "$CMD" in
     ok "Firmware build xong"
     ;;
 
-  # ─── ATTACKS ─────────────────────────────────────────────
-  attack-nosig)
-    info "🚨 Attack 1: publish telemetry KHÔNG có chữ ký HMAC"
-    docker run --rm --network host efrecon/mqtt-client pub \
-      -h localhost -p 1883 -u smarthome -P matkhau123 \
-      -t "smarthome/smarthome-phn-7f3a/telemetry" \
-      -m '{"api_key":"sk-smarthome-7f3a9d2e","device_id":"attacker","sensors":{"temperature":99}}'
-    warn "Kiểm tra log backend: 'TỪ CHỐI telemetry: chữ ký HMAC sai hoặc thiếu'"
-    ;;
-  attack-badsig)
-    info "🚨 Attack 2: publish với chữ ký sai (đúng format nhưng sai HMAC_SECRET)"
-    docker run --rm --network host efrecon/mqtt-client pub \
-      -h localhost -p 1883 -u smarthome -P matkhau123 \
-      -t "smarthome/smarthome-phn-7f3a/telemetry" \
-      -m '{"api_key":"sk-smarthome-7f3a9d2e","device_id":"attacker","sensors":{"temperature":99},"sig":"0000000000000000000000000000000000000000000000000000000000000000"}'
-    warn "Kiểm tra log backend: HMAC không khớp → reject"
-    ;;
-  attack-control)
-    info "🚨 Attack 3: giả mạo lệnh mở cửa (thiếu chữ ký)"
-    docker run --rm --network host efrecon/mqtt-client pub \
-      -h localhost -p 1883 -u smarthome -P matkhau123 \
-      -t "smarthome/smarthome-phn-7f3a/control" \
-      -m '{"api_key":"sk-smarthome-7f3a9d2e","device":"door","action":"open","ts":1}'
-    warn "ESP32 raise 'security_alert: control message with invalid signature rejected'"
-    ;;
+  # ─── ATTACKS (đơn giản, chỉ publish) ─────────────────────
+  attack-nosig)   node $ROOT/scripts/attack.js nosig ;;
+  attack-badsig)  node $ROOT/scripts/attack.js badsig ;;
+  attack-control) node $ROOT/scripts/attack.js control ;;
+
+  # ─── DEMO SECURITY (đầy đủ header + verify audit + verdict) ─────
+  demo-nosig)     bash $ROOT/scripts/demo-attack-nosig.sh ;;
+  demo-badsig)    bash $ROOT/scripts/demo-attack-badsig.sh ;;
+  demo-control)   bash $ROOT/scripts/demo-attack-control.sh ;;
+  demo-brute)     bash $ROOT/scripts/demo-attack-brute.sh ;;
   attack-replay)
     info "🚨 Attack 4: replay lệnh cũ (bắt được lệnh hợp lệ rồi phát lại)"
     warn "Chạy: bật quạt qua UI trước → dùng MQTT Explorer bắt payload đầy đủ →"
@@ -120,12 +105,16 @@ CHẠY (mở 3 terminal):
 FIRMWARE:
   ./demo.sh build-fw          — pio run build firmware ESP32
 
-DEMO ATTACK:
-  ./demo.sh attack-nosig      — telemetry thiếu chữ ký HMAC → backend reject
-  ./demo.sh attack-badsig     — chữ ký HMAC sai (giả mạo) → backend reject
-  ./demo.sh attack-control    — giả mạo lệnh mở cửa thiếu sig → ESP32 security_alert
-  ./demo.sh attack-replay     — replay lệnh cũ (ts) → ESP32 security_alert
-  ./demo.sh attack-brute      — bruteforce login → rate limit 429
+DEMO ATTACK (chỉ publish payload, không verify):
+  ./demo.sh attack-nosig      — telemetry thiếu chữ ký HMAC
+  ./demo.sh attack-badsig     — chữ ký HMAC sai (giả mạo)
+  ./demo.sh attack-control    — giả mạo lệnh mở cửa thiếu sig
+
+DEMO SECURITY (đầy đủ: publish → wait → verify Mongo/Redis → verdict — CHỤP ẢNH):
+  ./demo.sh demo-nosig        — Attack 1 + verify audit log
+  ./demo.sh demo-badsig       — Attack 2 + verify audit log
+  ./demo.sh demo-control      — Attack 3 + verify event từ ESP32
+  ./demo.sh demo-brute        — Attack 4 spam login + verify Redis counter + audit
 
 RESET:
   ./demo.sh reset-mongo       — xóa DB + seed lại user

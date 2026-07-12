@@ -74,11 +74,16 @@ router.post('/passkey/register/options', requireAuth, async (req, res) => {
   const options = await generateRegistrationOptions({
     rpName: env.RP_NAME,
     rpID: env.RP_ID,
-    userID: Buffer.from(user._id.toString()),
+    // @simplewebauthn v13 yêu cầu Uint8Array cho userID (không phải Buffer)
+    userID: new TextEncoder().encode(user._id.toString()),
     userName: user.username,
     attestationType: 'none',
     authenticatorSelection: { residentKey: 'preferred', userVerification: 'preferred' },
-    excludeCredentials: existing.map(c => ({ id: c.credentialID, type: 'public-key', transports: c.transports })),
+    // v13: excludeCredentials[].id phải là base64url string, không phải Buffer
+    excludeCredentials: existing.map(c => ({
+      id: c.credentialID.toString('base64url'),
+      transports: c.transports,
+    })),
   });
 
   user.currentChallenge = options.challenge;
@@ -108,7 +113,8 @@ router.post('/passkey/register/verify', requireAuth, async (req, res) => {
   const { credential } = verification.registrationInfo;
   await Credential.create({
     userId: user._id,
-    credentialID: Buffer.from(credential.id),
+    // v13: credential.id là base64url STRING → decode ra bytes để lưu Mongo
+    credentialID: Buffer.from(credential.id, 'base64url'),
     credentialPublicKey: Buffer.from(credential.publicKey),
     counter: credential.counter,
     transports: req.body.response?.transports || [],
@@ -148,7 +154,8 @@ router.post('/passkey/login/verify', loginLimiter, async (req, res) => {
       expectedOrigin: env.RP_ORIGIN,
       expectedRPID: env.RP_ID,
       credential: {
-        id: credRow.credentialID,
+        // v13 yêu cầu id là base64url string
+        id: credRow.credentialID.toString('base64url'),
         publicKey: credRow.credentialPublicKey,
         counter: credRow.counter,
       },

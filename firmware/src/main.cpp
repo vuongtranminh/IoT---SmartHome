@@ -264,9 +264,10 @@ void readSensors() {
     lastSensorLog = millis();
     unsigned long sinceMotion = millis() - lastMotionAt;
     bool holding = hasMotionHistory && sinceMotion < MOTION_HOLD_MS;
-    Serial.printf("[Sensors] temp=%.1f hum=%.1f gas=%d light=%d motion=%d hold=%d(%lus) | auto: ac=%d fan=%d light=%d\n",
+    Serial.printf("[Sensors] temp=%.1f hum=%.1f gas=%d light=%d motion=%d hold=%d(%lus) btn=%d | auto: ac=%d fan=%d light=%d\n",
                   sensors.temperature, sensors.humidity, sensors.gas, sensors.light, sensors.motion,
                   holding, hasMotionHistory ? sinceMotion / 1000 : 0,
+                  digitalRead(PIN_BTN_FIRE),   // 0 = đang bấm, 1 = thả (INPUT_PULLUP)
                   state.auto_ac, state.auto_fan, state.auto_light);
   }
 }
@@ -571,6 +572,17 @@ void loop() {
   mqtt.loop();
 
   unsigned long now = millis();
+
+  // Đọc nút test cháy edge-triggered (không đợi autoLogic 1s → bắt được click ngắn)
+  static bool lastBtnState = HIGH;
+  bool btnState = digitalRead(PIN_BTN_FIRE);
+  if (lastBtnState == HIGH && btnState == LOW) {
+    // Cạnh xuống — nút vừa được nhấn
+    Serial.println("[BTN] Nut test bao chay duoc bam -> KICH HOAT ALARM");
+    state.alarm_manual = false;   // tự động → autoLogic có thể tắt khi hết nguy hiểm
+    setFireAlarm(true);
+  }
+  lastBtnState = btnState;
 
   // sensor + autoLogic — 1s/lần
   if (now - lastSensorRead >= 1000) {
